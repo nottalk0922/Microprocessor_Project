@@ -4,7 +4,8 @@ import time
 import numpy as np
 import RPi.GPIO as GPIO
 from PCA9685 import PCA9685
-
+import dlib
+from scipy.spatial import distance
 # ********************** Setting **********************
 
 # setting Camera
@@ -17,10 +18,9 @@ pwm.setPWMFreq(50)
 pwm.setServoPulse(1,500) 
 pwm.setRotationAngle(1, 0)
 
-# Loading Haar Cascades classifier xml
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
-
+# Loading dlib 
+hog_face_detector = dlib.get_frontal_face_detector()
+dlib_facelandmark = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 # *********************** function ********************
 
 # Camera Capture function
@@ -31,31 +31,58 @@ def CaptureCamera():
         return False, frame
     return True, frame
 
-def detectionFace(img):
-    yumu = 0
-    # transform img -> gray color image 
-    grayImg = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    
-    # face detection
-    faces = face_cascade.detectMultiScale(grayImg, 1.3, 3)
-    print(1)
-    for (x,y,w,h) in faces:
-        cv2.rectangle(img, (x,y), (x+w, y+h), (0,0,255),2 )
-        roi_grayImg = grayImg[y:y+h, x:x+w]
-        return 1,roi_grayImg    
+# calculate ear distance
+def calculate_EAR(eye): 
+    A = distance.euclidean(eye[1], eye[5])
+    B = distance.euclidean(eye[2], eye[4])
+    C = distance.euclidean(eye[0], eye[3])
+    ear_aspect_ratio = (A+B)/(2.0*C)
+    return ear_aspect_ratio
 
-    if yumu == 0:
-        return 0,grayImg
-    cv2.imshow('Detection face', img)
+def detectionSleep(img):
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-def detectionEye(img):
-    eyes = eye_cascade.detectMultiScale(img)
-    for (x,y,w,h) in eyes:
-        cv2.rectangle(img, (x,y), (x+w,y+h), (0,255,0),2)
-        print ('detect eye')
-    cv2.imshow('Detection Eye', img)
-    
-    
+    faces = hog_face_detector(gray)
+    for face in faces:
+
+        face_landmarks = dlib_facelandmark(gray, face)
+        leftEye = []
+        rightEye = []
+
+        # Detect right eye
+        for n in range(36,42):
+            x = face_landmarks.part(n).x
+            y = face_landmarks.part(n).y
+            leftEye.append((x,y))
+            next_point = n+1
+            if n == 41:
+                next_point = 36
+            x2 = face_landmarks.part(next_point).x
+            y2 = face_landmarks.part(next_point).y
+            cv2.line(frame,(x,y),(x2,y2),(0,255,0),1)
+
+        # Detect left eye
+        for n in range(42,48):
+            x = face_landmarks.part(n).x
+            y = face_landmarks.part(n).y
+            rightEye.append((x,y))
+            next_point = n+1
+            if n == 47:
+                next_point = 42
+            x2 = face_landmarks.part(next_point).x
+            y2 = face_landmarks.part(next_point).y
+            cv2.line(frame,(x,y),(x2,y2),(0,255,0),1)
+        print("check")
+        left_ear = calculate_EAR(leftEye)
+        right_ear = calculate_EAR(rightEye)
+
+        EAR = (left_ear+right_ear)/2
+        EAR = round(EAR,2)
+
+        if EAR<0.19:
+            print("you Sleep")
+
+
 # ********************** variable declaration ************************
 
 # keyboard event processing variable
@@ -80,10 +107,7 @@ while True:
         
         err, frame = CaptureCamera()
         if err == True:
-            detect, roi_frame = detectionFace(frame)
-            if detect == 1:
-                cv2.imshow('roi',roi_frame)
-                detectionEye(roi_frame)
+            detectionSleep(frame)
         else:
             break
         
@@ -107,4 +131,3 @@ pwm.exit_PCA9685()
 print("\nProgram end")
 cap.release()
 cv2.destroyAllWindows()
-
