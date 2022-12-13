@@ -210,7 +210,7 @@ while True:
         err, frame = CaptureCamera()
         if err == True:
             if detectionSleep(frame):
-                cv2.imwrite("imgs/Sleep("+cnt+").jpg")
+                cv2.imwrite("imgs/Sleep("+cnt+").jpg",frame)
                 cnt += 1
                 led_on()
         else:
