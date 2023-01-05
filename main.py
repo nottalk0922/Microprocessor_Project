@@ -199,7 +199,6 @@ while True:
     detect = 0
     # Zeroing before starting
     pwm.setRotationAngle(1,10)
-    pwm.setRotationAngle(0, 150)
     time.sleep(1)
     print('start')
     # movement Pantilt and Video Capture 
@@ -210,7 +209,7 @@ while True:
         err, frame = CaptureCamera()
         if err == True:
             if detectionSleep(frame):
-                cv2.imwrite("imgs/Sleep("+cnt+").jpg")
+                cv2.imwrite("imgs/Sleep("+str(cnt)+").jpg",frame)
                 cnt += 1
                 led_on()
         else:
@@ -222,7 +221,7 @@ while True:
     
     for i in range(170,10,-160): 
         pwm.setRotationAngle(1, i)   
-        pwm.setRotationAngle(0, i) 
+        pwm.setRotationAngle(0, 30) 
         time.sleep(0.1)
         
     transmitSignal()
